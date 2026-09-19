@@ -11,10 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Copy this to app.yaml (gitignored) and fill in real values before deploying.
+# Copy this to app.yaml (gitignored) and fill in real values before deploying locally.
+# In CI, this template is rendered into app.yaml via `envsubst`, pulling secret values
+# from GCP Secret Manager at deploy time (see .github/workflows/deploy.yml).
 
 # [START gae_quickstart_yaml]
-runtime: nodejs16
+runtime: nodejs20
 # [END gae_quickstart_yaml]
 
 # Explicit, since `npm start` now boots local-dev-only tooling (docker compose for
@@ -23,17 +25,17 @@ runtime: nodejs16
 entrypoint: node src/app.js
 
 env_variables:
-  MONGO_URL:
-  JWT_SECRET:
+  MONGO_URL: ${MONGO_URL}
+  JWT_SECRET: ${JWT_SECRET}
   JWT_EXPIRES_IN: 7d
-  ADMIN_KEY:
+  ADMIN_KEY: ${ADMIN_KEY}
 
   # possible deprecated
   GCS_BUCKET: gs://dermyah
   GCLOUD_PROJECT: dermyah
   GCS_KEYFILE: firebaseServiceAccount.json
 
-  INFRA_KEY:
+  INFRA_KEY: ${INFRA_KEY}
   GOOGLE_CLOUD_PROJECT: dermyah
   GCLOUD_STORAGE_BUCKET: gs://dermyah
   GOOGLE_APPLICATION_CREDENTIALS: firebaseServiceAccount.json

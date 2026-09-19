@@ -1,0 +1,54 @@
+name: Deploy to App Engine
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Manual gate before deploying straight to prod (no staging environment exists).
+    # Requires a "production" GitHub Environment configured with a required reviewer
+    # in this repo's Settings > Environments.
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch app secrets from Secret Manager
+        run: |
+          set -euo pipefail
+
+          MONGO_URL="$(gcloud secrets versions access latest --secret=dermyah-mongo-url --project=dermyah)"
+          JWT_SECRET="$(gcloud secrets versions access latest --secret=dermyah-jwt-secret --project=dermyah)"
+          ADMIN_KEY="$(gcloud secrets versions access latest --secret=dermyah-admin-key --project=dermyah)"
+          INFRA_KEY="$(gcloud secrets versions access latest --secret=dermyah-infra-key --project=dermyah)"
+
+          echo "::add-mask::$MONGO_URL"
+          echo "::add-mask::$JWT_SECRET"
+          echo "::add-mask::$ADMIN_KEY"
+          echo "::add-mask::$INFRA_KEY"
+
+          echo "MONGO_URL=$MONGO_URL" >> "$GITHUB_ENV"
+          echo "JWT_SECRET=$JWT_SECRET" >> "$GITHUB_ENV"
+          echo "ADMIN_KEY=$ADMIN_KEY" >> "$GITHUB_ENV"
+          echo "INFRA_KEY=$INFRA_KEY" >> "$GITHUB_ENV"
+
+      - name: Write GCS service account key
+        run: |
+          gcloud secrets versions access latest \
+            --secret=dermyah-gcs-service-account --project=dermyah \
+            > firebaseServiceAccount.json
+
+      - name: Render app.yaml from template
+        run: envsubst < app.yaml.sample > app.yaml
+
+      - name: Deploy to App Engine
+        run: gcloud app deploy --project=dermyah --quiet
