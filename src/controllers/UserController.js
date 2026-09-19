@@ -37,6 +37,7 @@ class UserController {
 
     return res.json({
       id: user.id,
+      _id: user.id,
       email: emailLowerCase,
       name,
       config: user.config,
@@ -125,9 +126,11 @@ class UserController {
           user.config = {};
         }
 
-        user.admin = admin;
+        if (admin !== undefined) {
+          user.admin = admin;
+        }
 
-        user.save();
+        await user.save();
       }
 
       return res.json(user);

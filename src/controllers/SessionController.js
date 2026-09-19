@@ -33,6 +33,7 @@ class SessionController {
     return res.json({
       user: {
         id,
+        _id: id,
         name,
         email: user.email,
         config,
@@ -78,6 +79,7 @@ class SessionController {
     return res.json({
       user: {
         id,
+        _id: id,
         name,
         email,
         config,

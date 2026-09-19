@@ -19,7 +19,8 @@ function createModel(collectionName) {
         Object.defineProperty(doc, 'save', {
             enumerable: false,
             value: async function save() {
-                const { id: _id, ...fields } = this;
+                // Strip both id aliases so they're never persisted as real Firestore fields.
+                const { id: _id, _id: _mongoId, ...fields } = this;
                 fields.updatedAt = new Date();
                 await collection().doc(id).set(fields, { merge: true });
                 Object.assign(this, fields);
@@ -31,7 +32,9 @@ function createModel(collectionName) {
 
     function toDoc(snapshot) {
         if (!snapshot.exists) return null;
-        const data = convertTimestamps({ id: snapshot.id, ...snapshot.data() });
+        // _id is kept alongside id for backward compatibility with clients (e.g. the
+        // backoffice) written against the old Mongoose-backed API, which returned _id.
+        const data = convertTimestamps({ id: snapshot.id, _id: snapshot.id, ...snapshot.data() });
         return attachSave(data, snapshot.id);
     }
 
@@ -51,7 +54,7 @@ function createModel(collectionName) {
             // user's original timestamps), matching Mongoose's timestamps: true behavior.
             const data = { createdAt: now, updatedAt: now, ...fields };
             const ref = await collection().add(data);
-            return attachSave({ id: ref.id, ...data }, ref.id);
+            return attachSave({ id: ref.id, _id: ref.id, ...data }, ref.id);
         },
 
         async findById(id) {
