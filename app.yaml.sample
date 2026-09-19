@@ -33,9 +33,9 @@ env_variables:
   GCLOUD_PROJECT: dermyah
   GCS_KEYFILE: firebaseServiceAccount.json
 
-  CLASSIFICATION_HOST:
-  CLASSIFICATION_RESOURCE: /detect
   INFRA_KEY:
   GOOGLE_CLOUD_PROJECT: dermyah
   GCLOUD_STORAGE_BUCKET: gs://dermyah
   GOOGLE_APPLICATION_CREDENTIALS: firebaseServiceAccount.json
+  GOOGLE_GENAI_USE_ENTERPRISE: "true"
+  GOOGLE_CLOUD_LOCATION: us-central1

@@ -1,12 +1,12 @@
-const FaceDetectionService = require("../services/FaceDetectionService");
+const FaceShapeClassificationService = require("../services/FaceShapeClassificationService");
 const FileStorageService = require("../services/FileStorageService");
 
 class ClassificationController {
   async classifyFace(req, res) {
     const { imagePath } = req.body;
     try {
-      const faceDetectionService = new FaceDetectionService();
-      const classification = await faceDetectionService.execute({ imagePath });
+      const faceShapeClassificationService = new FaceShapeClassificationService();
+      const classification = await faceShapeClassificationService.execute({ imagePath });
 
       if (classification.status === 200) {
         // deleta o arquivo em paralelo

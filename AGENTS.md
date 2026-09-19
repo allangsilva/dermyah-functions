@@ -21,8 +21,7 @@ plus admin/print/backup routes behind `auth`/`checkIfAdmin` middleware.
    JWT_EXPIRES_IN=7d
    ADMIN_KEY=<random>
    ```
-   Leave `GCS_BUCKET`/`GCLOUD_PROJECT`/`GCS_KEYFILE`/`CLASSIFICATION_HOST`/
-   `CLASSIFICATION_RESOURCE` blank locally — see gap below.
+   Leave `GCS_BUCKET`/`GCLOUD_PROJECT`/`GCS_KEYFILE` blank locally — see gap below.
 2. `yarn install && yarn start` — that's it. `prestart` brings up the throwaway local
    Mongo via `docker compose -f docker-compose.dev.yml up -d --wait` (waits on its
    healthcheck, so Mongo is actually ready to accept connections before the app starts,
@@ -36,9 +35,12 @@ plus admin/print/backup routes behind `auth`/`checkIfAdmin` middleware.
    data needed — returns `null` on an empty DB, which is expected/correct).
 
 **Known local-dev gap**: `/upload` and `/classify` depend on `GCS_BUCKET` (Google Cloud
-Storage) and `CLASSIFICATION_HOST` (the `dermyah-shape-type` ML microservice, already
-deployed on GCP, out of scope here). Neither is stood up locally — those two routes will
-fail locally. Not worth mocking for this pass; document and move on unless someone
+Storage) and, since `/classify` now runs its face-shape classification in-process via
+Gemini (Vertex AI), also need `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`,
+`GOOGLE_CLOUD_LOCATION`, and `GOOGLE_GENAI_USE_ENTERPRISE` pointed at a real GCP project
+with the Vertex AI API enabled and the service account granted `roles/aiplatform.user`.
+Neither GCS nor Gemini is stood up for throwaway local dev — those two routes will fail
+locally. Not worth mocking for this pass; document and move on unless someone
 specifically needs to exercise the upload/classify flow locally.
 
 `/login` needs seeded user data this local DB won't have — expect it to fail on a fresh

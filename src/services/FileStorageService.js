@@ -31,6 +31,19 @@ class FileStorageService {
     });
   }
 
+  async downloadBytes(key) {
+    const storage = new Storage({ credentials });
+    const [buffer] = await storage
+      .bucket(credentials.storageBucket)
+      .file(key)
+      .download();
+    const [metadata] = await storage
+      .bucket(credentials.storageBucket)
+      .file(key)
+      .getMetadata();
+    return { buffer, mimeType: metadata.contentType || "image/jpeg" };
+  }
+
   async delete(key) {
     const storage = new Storage({ credentials });
     try {

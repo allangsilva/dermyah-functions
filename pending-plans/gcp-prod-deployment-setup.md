@@ -10,9 +10,13 @@ was never rotated, there's no CI/CD, and (per direct inspection of the GCP proje
 isn't currently active on this project. The goal is to get to: push to `main` → GitHub Actions
 deploys to App Engine automatically, with app secrets stored in **GCP Secret Manager** rather
 than GitHub (per preference — GitHub only holds the one credential needed to authenticate to
-GCP in the first place), on a supported Node runtime. Classification host/resource (the
-separate ML microservice) is explicitly out of scope — its values are just passed through as
-opaque secrets.
+GCP in the first place), on a supported Node runtime.
+
+Face-shape classification was moved off the old standalone `dermyah-shape-type` microservice
+and now runs in-process in `dermyah-functions` via Gemini (Vertex AI / Gemini Enterprise Agent
+Platform), reusing the existing `firebaseServiceAccount.json` credential — no new secret to
+manage for this. That migration adds its own manual GCP prerequisite (below) that's still
+pending and is independent of the deploy-pipeline work in this plan.
 
 ## What was found by inspecting the live GCP project (`dermyah`) and this repo
 
@@ -33,7 +37,7 @@ opaque secrets.
 - No `.github/workflows/` directory exists — no CI/CD at all.
 - The GitHub CLI is authenticated as `allangaldinosilva`, but got an HTTP 403 listing secrets
   on `github.com/allangsilva/dermyah-functions` — **that account may not have admin rights on
-  the repo**, which is required to create Actions secrets. Needs to be confirmed before step 7.
+  the repo**, which is required to create Actions secrets. Needs to be confirmed before step 8.
 - `Secret Manager` API (`secretmanager.googleapis.com`) is **not enabled** on the project yet —
   needed for the plan below.
 - Real secrets currently in use: `MONGO_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `ADMIN_KEY`,
@@ -73,7 +77,24 @@ Edit `app.yaml.sample`:
 Update the real (gitignored) `app.yaml` on the deploy machine to match. `nodejs16` is
 deprecated and may already be blocked for new deploys.
 
-### 4. Rotate the currently-exposed secrets
+### 4. Enable Vertex AI for the in-process face-shape classifier (blocking for `/classify`)
+The old standalone `dermyah-shape-type` classifier was replaced with an in-process Gemini
+call (Vertex AI / Gemini Enterprise Agent Platform) reusing the existing
+`firebaseServiceAccount.json` service account — this still needs its own one-time GCP setup,
+independent of the deploy-pipeline work above. Until this is done, every `/classify` call
+fails closed with a 503 rather than crashing.
+```
+gcloud services enable aiplatform.googleapis.com --project=dermyah
+
+gcloud projects add-iam-policy-binding dermyah \
+  --member="serviceAccount:<client_email from firebaseServiceAccount.json>" \
+  --role="roles/aiplatform.user"
+```
+Then confirm `GOOGLE_GENAI_USE_ENTERPRISE=true` and `GOOGLE_CLOUD_LOCATION=us-central1` are
+set in the real `app.yaml` (already added to `app.yaml.sample` as a template) before the next
+deploy — `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` are already present.
+
+### 5. Rotate the currently-exposed secrets
 Per `AGENTS.md`'s existing remediation checklist, before loading these into Secret Manager:
 - Rotate the Mongo Atlas connection string credentials.
 - Rotate `JWT_SECRET` and `ADMIN_KEY` (existing JWTs become invalid — expect user re-login).
@@ -81,26 +102,24 @@ Per `AGENTS.md`'s existing remediation checklist, before loading these into Secr
 - Revoke the old `firebaseServiceAccount.json` key in GCP IAM and generate a fresh one for
   whichever service account it belongs to (used for GCS access).
 
-### 5. Enable Secret Manager and create the secrets
+### 6. Enable Secret Manager and create the secrets
 ```
 gcloud services enable secretmanager.googleapis.com --project=dermyah
 ```
-Create one secret per value (rotated values from step 4), e.g.:
+Create one secret per value (rotated values from step 5), e.g.:
 ```
 echo -n "<rotated-mongo-url>" | gcloud secrets create dermyah-mongo-url --project=dermyah --data-file=-
 echo -n "<rotated-jwt-secret>" | gcloud secrets create dermyah-jwt-secret --project=dermyah --data-file=-
 echo -n "<rotated-admin-key>" | gcloud secrets create dermyah-admin-key --project=dermyah --data-file=-
 echo -n "<rotated-infra-key>" | gcloud secrets create dermyah-infra-key --project=dermyah --data-file=-
-echo -n "<classification-host>" | gcloud secrets create dermyah-classification-host --project=dermyah --data-file=-
-echo -n "<classification-resource>" | gcloud secrets create dermyah-classification-resource --project=dermyah --data-file=-
 gcloud secrets create dermyah-gcs-service-account --project=dermyah --data-file=firebaseServiceAccount.json
 ```
 (Re-running with `gcloud secrets versions add <name> --data-file=-` is how these get rotated
 again in the future — no GitHub secret updates ever needed for app secrets going forward.)
 
-### 6. Fix the `github-deployer` service account
+### 7. Fix the `github-deployer` service account
 It already exists but has no permissions and an unverified key. Grant it deploy-capable roles
-plus read access to the secrets from step 5:
+plus read access to the secrets from step 6:
 ```
 gcloud projects add-iam-policy-binding dermyah \
   --member="serviceAccount:github-deployer@dermyah.iam.gserviceaccount.com" \
@@ -129,17 +148,17 @@ gcloud iam service-accounts keys create github-deployer-key.json \
   --iam-account=github-deployer@dermyah.iam.gserviceaccount.com --project=dermyah
 ```
 
-### 7. Confirm GitHub repo admin access, then add the one required repo secret
+### 8. Confirm GitHub repo admin access, then add the one required repo secret
 First confirm whichever GitHub account will do this has admin access to
 `allangsilva/dermyah-functions` (the `gh` CLI's current login got a 403 on secrets — may need
 a different account or a re-auth). Then add just the deploy credential as an Actions secret
 (Settings → Secrets and variables → Actions), or via `gh secret set`:
-- `GCP_SA_KEY` — full contents of `github-deployer-key.json` from step 6
+- `GCP_SA_KEY` — full contents of `github-deployer-key.json` from step 7
 
 This is the only secret GitHub needs to hold — it's what lets the workflow authenticate to GCP
 and pull everything else from Secret Manager at deploy time.
 
-### 8. Add a GitHub Actions deploy workflow
+### 9. Add a GitHub Actions deploy workflow
 Create `.github/workflows/deploy.yml`: on push to `main`, checkout, auth to GCP via
 `google-github-actions/auth` using the `GCP_SA_KEY` secret, then at deploy time pull each value
 straight from Secret Manager (e.g. `gcloud secrets versions access latest --secret=dermyah-mongo-url
@@ -150,13 +169,36 @@ by substituting those values into the blank `env_variables` entries (e.g. `envsu
 deploys straight to prod, use a GitHub Environment (e.g. `production`) with a required reviewer
 as a manual gate before the deploy step runs.
 
-### 9. Verify
+### 10. Verify
 After the first automated deploy, confirm the live app responds:
 ```
 curl https://dermyah.appspot.com/appversion/android
 ```
 (low-risk route per `AGENTS.md`, expects `null` on a fresh/empty prod DB — but here it should
 return real data since Mongo Atlas has prod data already).
+
+### 11. Manually smoke-test the Gemini face-shape classifier end-to-end
+Once step 4 is done and the app is deployed with the new env vars, verify `/classify` actually
+works against live Gemini/Vertex AI before relying on it:
+1. Upload a small set of real face photos via `POST /upload` (or `gsutil cp` into the
+   `dermyah` bucket) covering: all 5 shapes (oblong, oval, round, square, triangle), one photo
+   with no face, one with two faces, and one blurry/occluded photo.
+2. Call `POST /classify` with each `imagePath` (curl/Postman) and confirm: correct HTTP status
+   (200 for a clean classification, 400 for the no-face/multi-face/unusable-image/garbage
+   cases, 503 if Gemini or GCS itself is unreachable), `classification.type` matches
+   expectation, and `classification.precision` is a sane numeric string.
+3. For the 200 cases, confirm the source file is actually deleted from the bucket afterward
+   (`gsutil ls`) — the existing fire-and-forget delete still runs against the rewritten
+   service.
+4. Do a quick check of `dermyah-app`'s handling of `/classify` responses (or a manual
+   end-to-end test with a build of the client) to confirm it doesn't key off any literal
+   string the old Flask service used to return, or do anything status-code-specific beyond
+   treating non-200 as failure.
+
+### 12. Decommission the old `dermyah-shape-type` service
+Once step 11 passes, tear down the standalone Flask VM/App Engine service at
+`34.151.214.175:5000` — this also closes an existing security gap (that endpoint had no
+auth). Confirm nothing else still points at it before deleting the instance.
 
 ## Not doing now (flagged for later, out of scope for this pass)
 - Having the app itself fetch secrets from Secret Manager at runtime (via the App Engine
@@ -172,7 +214,6 @@ return real data since Mongo Atlas has prod data already).
   static SA key (simpler key-in-secret approach chosen instead).
 - Scoping down the overly broad `roles/editor` currently held by the App Engine default service
   account and the `firebase-adminsdk-*` service accounts.
-- Standing up the classification microservice's GCP config (explicitly out of scope).
 - Scrubbing old exposed secrets from the historical Bitbucket repo's git history.
 
 ## Verification
@@ -181,3 +222,6 @@ return real data since Mongo Atlas has prod data already).
 - `curl https://dermyah.appspot.com/appversion/android` returns a real response post-deploy.
 - `gcloud app logs tail -s default --project=dermyah` shows the app booting without missing-env
   errors.
+- `POST /classify` returns real Gemini-backed classifications per step 11, instead of 503s.
+- The old `dermyah-shape-type` VM/service is torn down (step 12) and nothing in either repo
+  still references `CLASSIFICATION_HOST`/`CLASSIFICATION_RESOURCE` or the bare IP.
