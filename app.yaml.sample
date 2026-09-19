@@ -16,7 +16,7 @@
 # from GCP Secret Manager at deploy time (see .github/workflows/deploy.yml).
 
 # [START gae_quickstart_yaml]
-runtime: nodejs20
+runtime: nodejs24
 # [END gae_quickstart_yaml]
 
 # Explicit, since `npm start` now boots local-dev-only tooling (docker compose for
