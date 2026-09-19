@@ -13,7 +13,7 @@ class FileStorageService {
     return new Promise((resolve, reject) => {
       const bucket = new Storage({ credentials }).bucket(BUCKET_NAME);
 
-      console.log(`uploading file ${file.filename}`);
+      console.log(`uploading file ${file.originalname}`);
       // Create a new blob in the bucket and upload the file data.
       const blob = bucket.file(file.originalname);
       const blobStream = blob.createWriteStream();
