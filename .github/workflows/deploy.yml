@@ -26,17 +26,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          MONGO_URL="$(gcloud secrets versions access latest --secret=dermyah-mongo-url --project=dermyah)"
           JWT_SECRET="$(gcloud secrets versions access latest --secret=dermyah-jwt-secret --project=dermyah)"
           ADMIN_KEY="$(gcloud secrets versions access latest --secret=dermyah-admin-key --project=dermyah)"
           INFRA_KEY="$(gcloud secrets versions access latest --secret=dermyah-infra-key --project=dermyah)"
 
-          echo "::add-mask::$MONGO_URL"
           echo "::add-mask::$JWT_SECRET"
           echo "::add-mask::$ADMIN_KEY"
           echo "::add-mask::$INFRA_KEY"
 
-          echo "MONGO_URL=$MONGO_URL" >> "$GITHUB_ENV"
           echo "JWT_SECRET=$JWT_SECRET" >> "$GITHUB_ENV"
           echo "ADMIN_KEY=$ADMIN_KEY" >> "$GITHUB_ENV"
           echo "INFRA_KEY=$INFRA_KEY" >> "$GITHUB_ENV"

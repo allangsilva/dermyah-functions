@@ -1,4 +1,3 @@
-const mongoose = require("mongoose");
 const User = require("../models/User");
 const UserBackup = require("../models/UserBackup");
 
@@ -30,8 +29,7 @@ class BackupController {
           createdAt,
           updatedAt,
         };
-        const newdoc = new UserBackup(newUser);
-        await newdoc.save();
+        await UserBackup.create(newUser);
       }
 
       return res.json({ ok: true });

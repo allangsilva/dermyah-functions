@@ -1,22 +1,13 @@
-const mongoose = require('mongoose');
+const { Firestore } = require('@google-cloud/firestore');
 
-class Database {
-    constructor() {
-        this.init();
-    }
+// In prod, auth comes from GOOGLE_APPLICATION_CREDENTIALS (already set in app.yaml for
+// Vertex AI) via Application Default Credentials. Locally, FIRESTORE_EMULATOR_HOST (set by
+// docker-compose.dev.yml) redirects the client to the emulator and credentials aren't needed.
+// The project's default database is already in Datastore-mode from App Engine's original
+// provisioning, so this app uses a separate named Native-mode database instead of "(default)".
+const firestore = new Firestore({
+    projectId: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT,
+    databaseId: process.env.FIRESTORE_DATABASE_ID || '(default)',
+});
 
-    init() {
-        this.mongoConnection = mongoose.connect(process.env.MONGO_URL, {
-            useNewUrlParser: true,
-            useFindAndModify: true
-        });
-        
-        this.mongoConnection.then((res) => {
-            console.log('[MONGO] - Connection Successfully');
-        });
-    }
-
-    
-}
-
-module.exports = new Database();
+module.exports = firestore;

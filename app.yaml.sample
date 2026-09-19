@@ -20,12 +20,15 @@ runtime: nodejs24
 # [END gae_quickstart_yaml]
 
 # Explicit, since `npm start` now boots local-dev-only tooling (docker compose for
-# Mongo) that doesn't exist in the App Engine sandbox. Don't rely on the npm-start
-# default here.
+# the Firestore emulator) that doesn't exist in the App Engine sandbox. Don't rely on
+# the npm-start default here.
 entrypoint: node src/app.js
 
 env_variables:
-  MONGO_URL: ${MONGO_URL}
+  # Named (non-default) Firestore database in Native mode. The project's "(default)"
+  # database is already in Datastore mode from App Engine's original provisioning, so a
+  # separate named database is used instead - see pending-plans/mongo-to-firestore-migration.md.
+  FIRESTORE_DATABASE_ID: dermyah-app
   JWT_SECRET: ${JWT_SECRET}
   JWT_EXPIRES_IN: 7d
   ADMIN_KEY: ${ADMIN_KEY}

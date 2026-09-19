@@ -1,6 +1,5 @@
 require("dotenv").config();
 
-const mongoose = require("mongoose");
 const bcryptjs = require("bcryptjs");
 
 const User = require("../models/User");
@@ -9,42 +8,35 @@ const DEV_EMAIL = "allan@dermyah.com";
 const DEV_PASSWORD = "asd123";
 
 async function main() {
-  const mongoUrl = process.env.MONGO_URL || "";
-
-  if (!/^mongodb:\/\/(localhost|127\.0\.0\.1)/.test(mongoUrl)) {
+  if (!process.env.FIRESTORE_EMULATOR_HOST) {
     console.error(
-      `[seedDevUser] Refusing to run: MONGO_URL "${mongoUrl}" doesn't look like a local database. ` +
-        "This script is for dev/local use only."
+      `[seedDevUser] Refusing to run: FIRESTORE_EMULATOR_HOST is not set. ` +
+        "This script is for dev/local use only, against the Firestore emulator."
     );
     process.exit(1);
   }
 
-  await mongoose.connect(mongoUrl, {
-    useNewUrlParser: true,
-    useFindAndModify: true,
-  });
-
   const password = await bcryptjs.hash(DEV_PASSWORD, 8);
 
-  const user = await User.findOneAndUpdate(
-    { email: DEV_EMAIL },
-    {
-      $set: {
-        email: DEV_EMAIL,
-        password,
-        name: "Allan (dev)",
-        admin: true,
-      },
-      $setOnInsert: {
-        config: { connectionType: "BLUETOOTH" },
-      },
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+  let user = await User.findOne({ email: DEV_EMAIL });
+
+  if (user) {
+    user.email = DEV_EMAIL;
+    user.password = password;
+    user.name = "Allan (dev)";
+    user.admin = true;
+    await user.save();
+  } else {
+    user = await User.create({
+      email: DEV_EMAIL,
+      password,
+      name: "Allan (dev)",
+      admin: true,
+      config: { connectionType: "BLUETOOTH" },
+    });
+  }
 
   console.log(`[seedDevUser] Seeded dev user: ${user.email} (password: ${DEV_PASSWORD})`);
-
-  await mongoose.disconnect();
 }
 
 main().catch((error) => {

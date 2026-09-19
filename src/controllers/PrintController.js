@@ -1,8 +1,8 @@
 const Yup = require('yup');
-const mongoose = require('mongoose');
 
 const User = require('../models/User');
 const Print = require('../models/PrintResult');
+const { convertTimestamps } = require('../database/firestoreModel');
 
 class PrintController {
     async save(req, res) {
@@ -11,15 +11,11 @@ class PrintController {
             classification: Yup.string().required()
         });
 
-        if( !mongoose.Types.ObjectId.isValid(req.body.userId) ) {
-            return res.status(400).json({ message: "ID do usuário inválido" });
-        }
-    
         if (!(await schema.isValid(req.body))) {
             return res.status(400).json({ message: 'Erro na validação dos campos enviados' });
         }
 
-        const userExists = await User.findById(mongoose.Types.ObjectId(req.body.userId));
+        const userExists = await User.findById(req.body.userId);
 
         if( !userExists ) {
             return res.status(404).json({ message: "Usuário não encontrado" });
@@ -34,19 +30,20 @@ class PrintController {
 
         const { start, end } = req.query;
 
-        let conditions = {};
+        let query = Print.collection();
         if( start ) {
-            conditions.createdAt = { "$gte": start }
+            query = query.where('createdAt', '>=', new Date(start));
         }
 
         if( end ) {
-            if( !start ) conditions.createdAt = { "$gte": "2001-01-01" }
-            conditions.createdAt.$lt = end;
+            if( !start ) query = query.where('createdAt', '>=', new Date('2001-01-01'));
+            query = query.where('createdAt', '<', new Date(end));
         }
 
-        console.log('conditions', conditions);
+        console.log('range', { start, end });
 
-        const prints = await Print.find(conditions);
+        const snapshot = await query.get();
+        const prints = snapshot.docs.map((doc) => convertTimestamps({ id: doc.id, ...doc.data() }));
         return res.json(prints);
     }
 }
