@@ -5,8 +5,10 @@
   "repository": "https://allangaldino@bitbucket.org/allangaldino/dermyah-functions.git",
   "license": "MIT",
   "scripts": {
-    "start": "node src/app.js",
-    "start-dev": "nodemon src/app.js"
+    "prestart": "docker compose -f docker-compose.dev.yml up -d --wait",
+    "start": "nodemon src/app.js && yarn seed:dev",
+    "start:prod": "node src/app.js",
+    "seed:dev": "node src/scripts/seedDevUser.js"
   },
   "dependencies": {
     "@google-cloud/storage": "^6.2.3",

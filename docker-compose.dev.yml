@@ -9,6 +9,12 @@ services:
       - "27017:27017"
     volumes:
       - dermyah-mongo-dev-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
 
 volumes:
   dermyah-mongo-dev-data:

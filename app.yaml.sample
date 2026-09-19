@@ -17,6 +17,11 @@
 runtime: nodejs16
 # [END gae_quickstart_yaml]
 
+# Explicit, since `npm start` now boots local-dev-only tooling (docker compose for
+# Mongo) that doesn't exist in the App Engine sandbox. Don't rely on the npm-start
+# default here.
+entrypoint: node src/app.js
+
 env_variables:
   MONGO_URL:
   JWT_SECRET:

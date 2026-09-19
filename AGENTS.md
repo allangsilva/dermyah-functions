@@ -12,9 +12,7 @@ plus admin/print/backup routes behind `auth`/`checkIfAdmin` middleware.
 
 ## Running locally
 
-1. `docker compose -f docker-compose.dev.yml up -d` — starts a local, throwaway MongoDB
-   (dev-only, not used for deploy; safe to commit, no secrets in it).
-2. Local `.env` (gitignored) with **fresh, throwaway values**, not the real Mongo Atlas
+1. Local `.env` (gitignored) with **fresh, throwaway values**, not the real Mongo Atlas
    cluster:
    ```
    PORT=3000
@@ -25,8 +23,16 @@ plus admin/print/backup routes behind `auth`/`checkIfAdmin` middleware.
    ```
    Leave `GCS_BUCKET`/`GCLOUD_PROJECT`/`GCS_KEYFILE`/`CLASSIFICATION_HOST`/
    `CLASSIFICATION_RESOURCE` blank locally — see gap below.
-3. `yarn install && yarn start-dev` (nodemon) — boots on `$PORT` (3000).
-4. Smoke test: `curl localhost:3000/appversion/android` (low-risk route, no auth, no seed
+2. `yarn install && yarn start` — that's it. `prestart` brings up the throwaway local
+   Mongo via `docker compose -f docker-compose.dev.yml up -d --wait` (waits on its
+   healthcheck, so Mongo is actually ready to accept connections before the app starts,
+   not just "container running") and `start` runs nodemon on `$PORT` (3000). Requires
+   Docker Desktop (or another Docker daemon) running; `docker compose` fails fast with a
+   clear error if it isn't.
+   - `yarn start:prod` runs the bare `node src/app.js` without touching Docker — this is
+     what App Engine actually runs (see `entrypoint:` in `app.yaml`, set explicitly so
+     prod never depends on what `npm start` happens to mean locally).
+3. Smoke test: `curl localhost:3000/appversion/android` (low-risk route, no auth, no seed
    data needed — returns `null` on an empty DB, which is expected/correct).
 
 **Known local-dev gap**: `/upload` and `/classify` depend on `GCS_BUCKET` (Google Cloud

@@ -156,6 +156,7 @@ class UserController {
     try {
       const { userId } = req.headers;
       const { webserver } = req.body;
+      console.log("[User.updateWebserver] - webserver ", webserver);
 
       const user = await User.findById(mongoose.Types.ObjectId(userId));
 
@@ -165,7 +166,9 @@ class UserController {
 
       if (!user.config) user.config = {};
 
-      user.config = { ...user.config, webserver };
+      // Updating the webserver IP means the device is now connecting over
+      // IP, whether it had no connectionType yet or was previously BLUETOOTH.
+      user.config = { ...user.config, webserver, connectionType: "IP" };
 
       await user.save();
 
