@@ -1,0 +1,14 @@
+# Local dev only. Not used for deployment (GCP App Engine has no container/db
+# dependency on this file). Spins up a throwaway MongoDB for local backend
+# testing so `yarn start-dev` never has to touch the real Mongo Atlas cluster.
+services:
+  mongo:
+    image: mongo:6
+    container_name: dermyah-functions-mongo-dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - dermyah-mongo-dev-data:/data/db
+
+volumes:
+  dermyah-mongo-dev-data:
