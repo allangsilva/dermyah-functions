@@ -101,22 +101,23 @@ read-only with `firebaseServiceAccount.json` against `projects/dermyah/databases
 - The Atlas cluster itself is still live and still has all the real data — it was **not**
   touched or decommissioned. Do that only after the data migration below is verified.
 
-## Data migration — not yet run (intentionally left for you)
+## Data migration — moot; Atlas was already retired
 
-The Firestore database exists and the app code is ready, but **no existing Atlas data has
-been copied over yet**. To cut over:
+Before this migration could be verified, it was discovered that the Atlas cluster
+(`dermyahcluster.i3tjq.mongodb.net`) was **already unreachable** — its DNS zone had no NS/SOA
+records from any resolver (not a GCP-specific issue), consistent with the whole Atlas
+project having been deleted rather than merely paused. This is what caused the brief prod
+outage during the `gcp-prod-deployment-setup.md` deploy: a long-lived App Engine instance had
+kept a warm connection since 2024, and any fresh instance (ours or an automatic restart)
+would have hit this same failure regardless of anything changed in that pass.
 
-1. Run `MONGO_URL='<real Atlas URI>' FIRESTORE_DATABASE_ID=dermyah-app
-   GOOGLE_APPLICATION_CREDENTIALS=firebaseServiceAccount.json GOOGLE_CLOUD_PROJECT=dermyah
-   yarn migrate:mongo-to-firestore` once, from a machine with network access to both Atlas
-   and GCP. (The real Atlas URI is in the gitignored `app.yaml` on this machine.)
-2. Verify a few documents landed correctly (e.g. `/appversion/android`, `/login` with a
-   known account) — you can point a local run at prod with
-   `GOOGLE_APPLICATION_CREDENTIALS=firebaseServiceAccount.json GOOGLE_CLOUD_PROJECT=dermyah
-   FIRESTORE_DATABASE_ID=dermyah-app node src/app.js`, but be aware that talks to real prod
-   data.
-3. Commit and deploy this branch.
-4. Once confirmed working in prod, decommission the Atlas cluster.
+Per the user: the Atlas cluster is intentionally retired and its data is not needed. So:
+
+- `src/scripts/migrateMongoToFirestore.js` was **deleted** (dead code — nothing to migrate
+  from), along with the `mongodb` devDependency and the `migrate:mongo-to-firestore` script
+  in `package.json`.
+- Firestore (`dermyah-app` database) now starts empty — there is no historical prod data.
+- No further action needed on the Atlas side; it was already gone before this plan ran.
 
 ## Local dev
 

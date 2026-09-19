@@ -8,8 +8,7 @@
     "prestart": "docker compose -f docker-compose.dev.yml up -d --wait",
     "start": "nodemon src/app.js && yarn seed:dev",
     "start:prod": "node src/app.js",
-    "seed:dev": "node src/scripts/seedDevUser.js",
-    "migrate:mongo-to-firestore": "node src/scripts/migrateMongoToFirestore.js"
+    "seed:dev": "node src/scripts/seedDevUser.js"
   },
   "dependencies": {
     "@google-cloud/firestore": "^9.2.0",
@@ -27,7 +26,6 @@
   },
   "devDependencies": {
     "env-cmd": "^10.1.0",
-    "mongodb": "^7.6.0",
     "nodemon": "^2.0.4"
   }
 }
