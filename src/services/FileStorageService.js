@@ -2,10 +2,16 @@ const { format } = require("util");
 const { Storage } = require("@google-cloud/storage");
 const credentials = require("../../firebaseServiceAccount.json");
 
+const BUCKET_NAME = (
+  process.env.GCS_BUCKET ||
+  process.env.GCLOUD_STORAGE_BUCKET ||
+  ""
+).replace(/^gs:\/\//, "");
+
 class FileStorageService {
   async upload(file) {
     return new Promise((resolve, reject) => {
-      const bucket = new Storage().bucket(credentials.storageBucket);
+      const bucket = new Storage({ credentials }).bucket(BUCKET_NAME);
 
       console.log(`uploading file ${file.filename}`);
       // Create a new blob in the bucket and upload the file data.
@@ -13,7 +19,7 @@ class FileStorageService {
       const blobStream = blob.createWriteStream();
 
       blobStream.on("error", (err) => {
-        next(err);
+        reject(err);
       });
 
       blobStream.on("finish", () => {
@@ -33,12 +39,9 @@ class FileStorageService {
 
   async downloadBytes(key) {
     const storage = new Storage({ credentials });
-    const [buffer] = await storage
-      .bucket(credentials.storageBucket)
-      .file(key)
-      .download();
+    const [buffer] = await storage.bucket(BUCKET_NAME).file(key).download();
     const [metadata] = await storage
-      .bucket(credentials.storageBucket)
+      .bucket(BUCKET_NAME)
       .file(key)
       .getMetadata();
     return { buffer, mimeType: metadata.contentType || "image/jpeg" };
@@ -47,8 +50,8 @@ class FileStorageService {
   async delete(key) {
     const storage = new Storage({ credentials });
     try {
-      await storage.bucket(credentials.storageBucket).file(key).delete();
-      console.log(`${credentials.storageBucket}/${key} --- deleted`);
+      await storage.bucket(BUCKET_NAME).file(key).delete();
+      console.log(`${BUCKET_NAME}/${key} --- deleted`);
     } catch (error) {
       console.log(`Error on delete file ${key}`, error);
       return error;
